@@ -1,0 +1,19 @@
+profile:
+  name: prod-api
+  description: Production API through a split profile file
+  enabled: true
+  tags: [prod, api]
+  bastion:
+    host: prod-bastion.example.com
+    user: ec2-user
+    identityFile: ~/.ssh/id_ed25519
+    sshOptions:
+      StrictHostKeyChecking: accept-new
+  forwards:
+    - name: api
+      local:
+        host: 127.0.0.1
+        port: 18080
+      remote:
+        host: api.internal
+        port: 80

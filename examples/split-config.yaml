@@ -1,0 +1,6 @@
+apiVersion: mac-bastion/v1
+kind: BastionConfig
+currentProfile: prod-api
+includes:
+  - split-profiles/*.yaml
+profiles: []

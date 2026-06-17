@@ -1,0 +1,25 @@
+apiVersion: mac-bastion/v1
+kind: BastionConfig
+currentProfile: dev-db
+includes:
+  - profiles/*.yaml
+profiles:
+  - name: dev-db
+    description: Local Postgres through the development bastion
+    enabled: true
+    tags: [dev, database]
+    bastion:
+      host: bastion.example.com
+      user: ec2-user
+      port: 22
+      identityFile: ~/.ssh/id_ed25519
+      sshOptions:
+        StrictHostKeyChecking: accept-new
+    forwards:
+      - name: postgres
+        local:
+          host: 127.0.0.1
+          port: 15432
+        remote:
+          host: postgres.internal
+          port: 5432

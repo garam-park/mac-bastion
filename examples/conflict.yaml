@@ -1,0 +1,27 @@
+apiVersion: mac-bastion/v1
+kind: BastionConfig
+profiles:
+  - name: dev-db
+    bastion:
+      host: bastion-a.example.com
+      user: ec2-user
+    forwards:
+      - name: postgres
+        local:
+          host: localhost
+          port: 15432
+        remote:
+          host: postgres-a.internal
+          port: 5432
+  - name: stage-db
+    bastion:
+      host: bastion-b.example.com
+      user: ec2-user
+    forwards:
+      - name: postgres
+        local:
+          host: 127.0.0.1
+          port: 15432
+        remote:
+          host: postgres-b.internal
+          port: 5432
