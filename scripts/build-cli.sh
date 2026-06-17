@@ -29,4 +29,7 @@ swiftc \
   Sources/mbastion/main.swift \
   -o "$BUILD_DIR/mbastion"
 
+codesign --force --sign - "$BUILD_DIR/libMacBastionCore.dylib"
+codesign --force --sign - "$BUILD_DIR/mbastion"
+
 echo "$BUILD_DIR/mbastion"

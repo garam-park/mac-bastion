@@ -65,4 +65,6 @@ PLIST
 
 perl -0pi -e "s/__VERSION__/$VERSION/g" "$CONTENTS_DIR/Info.plist"
 
+codesign --force --deep --sign - "$APP_DIR"
+
 echo "$APP_DIR"
