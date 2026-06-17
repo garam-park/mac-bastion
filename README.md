@@ -24,6 +24,14 @@ scripts/build-cli.sh
 scripts/package-menu-app.sh
 ```
 
+## Download
+
+Packaged builds are published from GitHub Releases.
+
+- `MacBastionMenu-<version>-macos-arm64.zip`: menu bar app
+- `mbastion-<version>-macos-arm64.tar.gz`: CLI plus its runtime library
+- `SHA256SUMS.txt`: checksums
+
 ## CLI
 
 ```sh
