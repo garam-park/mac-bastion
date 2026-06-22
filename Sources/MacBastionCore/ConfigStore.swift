@@ -47,8 +47,9 @@ public final class ConfigStore {
             throw MacBastionError.fileNotFound(url.path)
         }
 
-        var seen: Set<String> = []
-        let loaded = try loadFile(url: url, seen: &seen)
+        var visiting: Set<String> = []
+        var visited: Set<String> = []
+        let loaded = try loadFile(url: url, visiting: &visiting, visited: &visited)
         return LoadedConfig(config: loaded.config, rootURL: url, sourceURLs: loaded.sources)
     }
 
@@ -113,12 +114,17 @@ public final class ConfigStore {
         return ConfigCodec.encode(config)
     }
 
-    private func loadFile(url: URL, seen: inout Set<String>) throws -> (config: BastionConfig, sources: [URL]) {
+    private func loadFile(url: URL, visiting: inout Set<String>, visited: inout Set<String>) throws -> (config: BastionConfig, sources: [URL]) {
         let path = url.standardizedFileURL.path
-        guard !seen.contains(path) else {
+        // Already fully loaded via a different include path (diamond) — skip to avoid duplicates.
+        if visited.contains(path) {
+            return (BastionConfig(), [])
+        }
+        guard !visiting.contains(path) else {
             throw MacBastionError.parse("Include cycle detected at \(path)")
         }
-        seen.insert(path)
+        visiting.insert(path)
+        visited.insert(path)
 
         let text = try String(contentsOf: url, encoding: .utf8)
         var config = try ConfigCodec.decode(YAMLParser().parse(text), sourceDescription: path)
@@ -130,13 +136,13 @@ public final class ConfigStore {
                 guard fileManager.fileExists(atPath: includeURL.path) else {
                     throw MacBastionError.fileNotFound(includeURL.path)
                 }
-                let loaded = try loadFile(url: includeURL, seen: &seen)
+                let loaded = try loadFile(url: includeURL, visiting: &visiting, visited: &visited)
                 config.profiles.append(contentsOf: loaded.config.profiles)
                 sources.append(contentsOf: loaded.sources)
             }
         }
 
-        seen.remove(path)
+        visiting.remove(path)
         return (config, sources)
     }
 

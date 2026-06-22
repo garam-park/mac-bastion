@@ -203,6 +203,20 @@ public final class TunnelRuntime {
         return tailLog(at: URL(fileURLWithPath: record.logPath), maxBytes: maxBytes)
     }
 
+    public func allRuntimeRecords() -> [RuntimeRecord] {
+        guard let urls = try? fileManager.contentsOfDirectory(at: runtimeDirectory, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return urls
+            .filter { $0.pathExtension == "json" }
+            .compactMap { url -> RuntimeRecord? in
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return try? decoder.decode(RuntimeRecord.self, from: data)
+            }
+    }
+
     public func record(for profileName: String) throws -> RuntimeRecord {
         let data = try Data(contentsOf: recordURL(for: profileName))
         let decoder = JSONDecoder()
