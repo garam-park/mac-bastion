@@ -125,6 +125,7 @@ profiles: []
 
 포함된 각 파일에는 단일 `profile:` 키 또는 `profiles:` 목록을 사용할 수 있습니다.
 글로브 패턴(`*`)을 지원하며 순환 참조는 감지 후 거부됩니다.
+다이아몬드 include(두 경로에서 같은 파일을 참조)는 중복 제거되어 해당 파일을 한 번만 로드합니다.
 
 ## CLI 레퍼런스
 
@@ -154,10 +155,10 @@ mbastion doctor [--config PATH]
 | `start` | 터널 시작 (시작 전 라이브 포트 유효성 검사) |
 | `start-all` | 활성화된 모든 프로파일 시작; 오류 발생 시 중단 |
 | `stop` | SIGTERM 전송 (필요 시 SIGKILL) 후 런타임 레코드 삭제 |
-| `stop-all` | 모든 프로파일 중지 |
+| `stop-all` | 실행 중인 모든 터널 중지 (config에서 삭제된 프로파일의 터널 포함) |
 | `restart` | 중지 후 재시작 |
 | `status` | 하나 또는 전체 프로파일의 `running`, `stopped`, `stale` 상태 표시 |
-| `logs` | 터널 로그 마지막 4KB 출력 |
+| `logs` | 터널 로그 마지막 4,000 bytes 출력 |
 | `import` | YAML 파일로부터 설정을 병합 또는 교체; 기존 파일은 자동 백업 |
 | `export` | 전체 설정 또는 단일 프로파일을 표준 출력 또는 파일로 저장 |
 | `doctor` | 설정, 런타임, 로그 디렉토리 경로 출력 |
@@ -167,7 +168,7 @@ mbastion doctor [--config PATH]
 | 상태 | 의미 |
 | --- | --- |
 | `stopped` | 런타임 레코드 없음 |
-| `running` | 프로세스 살아있음 (`kill(pid, 0)` 성공) |
+| `running` | 프로세스 살아있음 |
 | `stale` | 런타임 레코드는 있지만 프로세스가 종료됨 |
 
 ## 메뉴바 앱
@@ -222,7 +223,7 @@ ssh -N -T -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCo
     ec2-user@bastion.example.com
 ```
 
-700ms 시작 대기 후 프로세스가 살아있는지 확인합니다. 프로세스가 종료됐다면 로그 마지막 3KB를 오류 메시지로 출력합니다.
+시작 안정화 대기 후 프로세스가 살아있는지 확인합니다. 프로세스가 종료됐다면 로그 마지막 3,000 bytes를 오류 메시지로 출력합니다.
 
 런타임 상태는 `~/Library/Application Support/MacBastion/` 하위에 저장됩니다:
 

@@ -125,6 +125,7 @@ profiles: []
 
 Each included file may contain a single `profile:` key or a `profiles:` list.
 Glob patterns (`*`) are supported. Include cycles are detected and rejected.
+Diamond includes (the same file reachable via two separate paths) are deduplicated — the file is loaded only once.
 
 ## CLI Reference
 
@@ -154,10 +155,10 @@ mbastion doctor [--config PATH]
 | `start` | Start a tunnel; validates live ports first |
 | `start-all` | Start all enabled profiles; stops on first error |
 | `stop` | Send SIGTERM (then SIGKILL if needed) and remove the runtime record |
-| `stop-all` | Stop all profiles |
+| `stop-all` | Stop all running tunnels, including any whose profiles have been removed from config |
 | `restart` | Stop then start |
 | `status` | Show `running`, `stopped`, or `stale` for one or all profiles |
-| `logs` | Print the last 4 KB of a tunnel's log |
+| `logs` | Print the last 4,000 bytes of a tunnel's log |
 | `import` | Merge or replace config from a YAML file; backs up existing file first |
 | `export` | Write the full config or a single profile to stdout or a file |
 | `doctor` | Print config, runtime, and log directory paths |
@@ -167,7 +168,7 @@ mbastion doctor [--config PATH]
 | State | Meaning |
 | --- | --- |
 | `stopped` | No runtime record |
-| `running` | Process is alive (`kill(pid, 0)` succeeds) |
+| `running` | Process is alive |
 | `stale` | Runtime record exists but process is gone |
 
 ## Menu Bar App
@@ -222,7 +223,7 @@ ssh -N -T -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCo
     ec2-user@bastion.example.com
 ```
 
-After a 700 ms startup window, it checks that the process is still alive. If not, it surfaces the last 3 KB of log output as the error message.
+After a startup settle window, it checks that the process is still alive. If not, it surfaces the last 3,000 bytes of log output as the error message.
 
 Runtime state is stored under `~/Library/Application Support/MacBastion/`:
 
