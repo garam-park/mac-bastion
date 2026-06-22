@@ -1,10 +1,12 @@
 import Foundation
 
 public struct SSHCommand {
+    public static let defaultExecutable = "/usr/bin/ssh"
+
     public var executable: String
     public var arguments: [String]
 
-    public init(executable: String = "/usr/bin/ssh", arguments: [String]) {
+    public init(executable: String = SSHCommand.defaultExecutable, arguments: [String]) {
         self.executable = executable
         self.arguments = arguments
     }

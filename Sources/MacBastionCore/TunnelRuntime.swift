@@ -39,13 +39,24 @@ public struct RuntimeRecord: Codable, Equatable {
     public var startedAt: Date
     public var command: String
     public var logPath: String
+    /// Absolute path of the executable we launched. Optional so records written
+    /// by older versions (without this field) still decode; nil falls back to ssh.
+    public var executable: String?
 
-    public init(profileName: String, pid: Int32, startedAt: Date, command: String, logPath: String) {
+    public init(
+        profileName: String,
+        pid: Int32,
+        startedAt: Date,
+        command: String,
+        logPath: String,
+        executable: String? = nil
+    ) {
         self.profileName = profileName
         self.pid = pid
         self.startedAt = startedAt
         self.command = command
         self.logPath = logPath
+        self.executable = executable
     }
 }
 
@@ -120,7 +131,8 @@ public final class TunnelRuntime {
             pid: pid,
             startedAt: Date(),
             command: command.rendered,
-            logPath: logURL.path
+            logPath: logURL.path,
+            executable: command.executable
         )
         try write(record)
         try? logHandle.close()
@@ -141,18 +153,33 @@ public final class TunnelRuntime {
         }
 
         // A stale record's PID may have been recycled by the OS for an unrelated
-        // process, so only signal it when it still looks like the ssh tunnel we
-        // launched. Otherwise we could kill the user's shell, editor, etc.
-        if Self.isProcessAlive(pid: record.pid), Self.processMatchesRecord(record) {
-            Darwin.kill(record.pid, SIGTERM)
-            for _ in 0..<20 {
-                if !Self.isProcessAlive(pid: record.pid) {
-                    break
-                }
-                Thread.sleep(forTimeInterval: 0.1)
+        // process, so verify the live process before signalling it.
+        if Self.isProcessAlive(pid: record.pid) {
+            guard let actualPath = Self.processExecutablePath(pid: record.pid) else {
+                // Process is alive but we cannot confirm what it is. Leave it and
+                // keep the record, rather than abandon a possibly-live tunnel.
+                return TunnelStatus(
+                    profileName: profileName,
+                    state: .running,
+                    pid: record.pid,
+                    startedAt: record.startedAt,
+                    logPath: record.logPath,
+                    message: "Could not verify the process; left running. Stop it manually if needed."
+                )
             }
-            if Self.isProcessAlive(pid: record.pid) {
-                Darwin.kill(record.pid, SIGKILL)
+            // Only signal when the executable matches what we launched; otherwise
+            // the PID was recycled for an unrelated process (shell, editor, ...).
+            if actualPath == record.executable ?? SSHCommand.defaultExecutable {
+                Darwin.kill(record.pid, SIGTERM)
+                for _ in 0..<20 {
+                    if !Self.isProcessAlive(pid: record.pid) {
+                        break
+                    }
+                    Thread.sleep(forTimeInterval: 0.1)
+                }
+                if Self.isProcessAlive(pid: record.pid) {
+                    Darwin.kill(record.pid, SIGKILL)
+                }
             }
         }
 
@@ -285,16 +312,6 @@ public final class TunnelRuntime {
             return true
         }
         return errno == EPERM
-    }
-
-    /// Guards against PID reuse: returns true only when the live process at
-    /// `record.pid` runs the same executable we recorded for this tunnel.
-    private static func processMatchesRecord(_ record: RuntimeRecord) -> Bool {
-        guard let expected = record.command.split(separator: " ", maxSplits: 1).first.map(String.init),
-              let actual = processExecutablePath(pid: record.pid) else {
-            return false
-        }
-        return actual == expected
     }
 
     private static func processExecutablePath(pid: Int32) -> String? {
