@@ -211,18 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func stopAll() {
-        let configNames: Set<String>
-        if let profiles = loadedConfig?.config.profiles {
-            configNames = Set(profiles.map { $0.name })
-            for profile in profiles {
-                _ = try? runtime.stop(profileName: profile.name)
-            }
-        } else {
-            configNames = []
-        }
-        for record in runtime.allRuntimeRecords() where !configNames.contains(record.profileName) {
-            _ = try? runtime.stop(profileName: record.profileName)
-        }
+        runtime.stopAll(knownProfileNames: loadedConfig?.config.profiles.map { $0.name } ?? [])
         rebuildMenu()
     }
 

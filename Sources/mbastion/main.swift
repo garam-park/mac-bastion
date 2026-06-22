@@ -69,12 +69,8 @@ struct MBastionCLI {
             printStatus(status)
         case "stop-all":
             let loaded = try store.load(path: options.value(for: "--config"))
-            let configNames = Set(loaded.config.profiles.map { $0.name })
-            for profile in loaded.config.profiles {
-                printStatus(try runtime.stop(profileName: profile.name))
-            }
-            for record in runtime.allRuntimeRecords() where !configNames.contains(record.profileName) {
-                printStatus(try runtime.stop(profileName: record.profileName))
+            for status in runtime.stopAll(knownProfileNames: loaded.config.profiles.map { $0.name }) {
+                printStatus(status)
             }
         case "restart":
             let loaded = try store.load(path: options.value(for: "--config"))

@@ -140,7 +140,10 @@ public final class TunnelRuntime {
             return TunnelStatus(profileName: profileName, state: .stopped, message: "Not running")
         }
 
-        if Self.isProcessAlive(pid: record.pid) {
+        // A stale record's PID may have been recycled by the OS for an unrelated
+        // process, so only signal it when it still looks like the ssh tunnel we
+        // launched. Otherwise we could kill the user's shell, editor, etc.
+        if Self.isProcessAlive(pid: record.pid), Self.processMatchesRecord(record) {
             Darwin.kill(record.pid, SIGTERM)
             for _ in 0..<20 {
                 if !Self.isProcessAlive(pid: record.pid) {
@@ -207,8 +210,7 @@ public final class TunnelRuntime {
         guard let urls = try? fileManager.contentsOfDirectory(at: runtimeDirectory, includingPropertiesForKeys: nil) else {
             return []
         }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        let decoder = Self.makeDecoder()
         return urls
             .filter { $0.pathExtension == "json" }
             .compactMap { url -> RuntimeRecord? in
@@ -217,11 +219,36 @@ public final class TunnelRuntime {
             }
     }
 
+    /// Stops every running tunnel: the named profiles plus any orphaned runtime
+    /// records whose profiles were removed from config. Each tunnel is stopped once.
+    @discardableResult
+    public func stopAll(knownProfileNames: [String]) -> [TunnelStatus] {
+        var results: [TunnelStatus] = []
+        var stopped: Set<String> = []
+        for name in knownProfileNames where !stopped.contains(name) {
+            if let status = try? stop(profileName: name) {
+                results.append(status)
+                stopped.insert(name)
+            }
+        }
+        for record in allRuntimeRecords() where !stopped.contains(record.profileName) {
+            if let status = try? stop(profileName: record.profileName) {
+                results.append(status)
+                stopped.insert(record.profileName)
+            }
+        }
+        return results
+    }
+
     public func record(for profileName: String) throws -> RuntimeRecord {
         let data = try Data(contentsOf: recordURL(for: profileName))
+        return try Self.makeDecoder().decode(RuntimeRecord.self, from: data)
+    }
+
+    private static func makeDecoder() -> JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(RuntimeRecord.self, from: data)
+        return decoder
     }
 
     private func write(_ record: RuntimeRecord) throws {
@@ -258,6 +285,27 @@ public final class TunnelRuntime {
             return true
         }
         return errno == EPERM
+    }
+
+    /// Guards against PID reuse: returns true only when the live process at
+    /// `record.pid` runs the same executable we recorded for this tunnel.
+    private static func processMatchesRecord(_ record: RuntimeRecord) -> Bool {
+        guard let expected = record.command.split(separator: " ", maxSplits: 1).first.map(String.init),
+              let actual = processExecutablePath(pid: record.pid) else {
+            return false
+        }
+        return actual == expected
+    }
+
+    private static func processExecutablePath(pid: Int32) -> String? {
+        // PROC_PIDPATHINFO_MAXSIZE (4 * MAXPATHLEN); the macro is not exposed to Swift.
+        let maxPathSize = 4 * 1024
+        var buffer = [CChar](repeating: 0, count: maxPathSize)
+        let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else {
+            return nil
+        }
+        return String(cString: buffer)
     }
 
     private static let dateFormatter: ISO8601DateFormatter = {
