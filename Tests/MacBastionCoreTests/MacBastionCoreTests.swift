@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import MacBastionCore
 
@@ -56,5 +57,36 @@ final class MacBastionCoreTests: XCTestCase {
         let decoded = try ConfigCodec.decode(YAMLParser().parse(yaml))
 
         XCTAssertEqual(decoded, original)
+    }
+
+    func testStatusDecodesRuntimeRecordWithISO8601StartedAt() throws {
+        let supportDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: supportDirectory) }
+        let runtime = TunnelRuntime(supportDirectory: supportDirectory)
+        try FileManager.default.createDirectory(at: runtime.runtimeDirectory, withIntermediateDirectories: true)
+
+        // Mirrors the encoding TunnelRuntime.write(_:) performs (dateEncodingStrategy = .iso8601),
+        // so this catches a decoder that forgets to use a matching strategy.
+        let record = RuntimeRecord(
+            profileName: "dev-db",
+            pid: ProcessInfo.processInfo.processIdentifier,
+            startedAt: Date(),
+            command: "ssh -N dev-db",
+            logPath: "/tmp/dev-db.log"
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(record)
+        try data.write(to: runtime.runtimeDirectory.appendingPathComponent("dev-db.json"))
+
+        let profile = BastionProfile(
+            name: "dev-db",
+            bastion: BastionHost(host: "bastion.example.com"),
+            forwards: [LocalForward(name: "db", local: ForwardEndpoint(host: "127.0.0.1", port: 15432), remote: ForwardEndpoint(host: "db", port: 5432))]
+        )
+
+        let status = runtime.status(for: profile)
+        XCTAssertEqual(status.state, .running)
+        XCTAssertEqual(status.pid, record.pid)
     }
 }

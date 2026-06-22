@@ -205,7 +205,9 @@ public final class TunnelRuntime {
 
     public func record(for profileName: String) throws -> RuntimeRecord {
         let data = try Data(contentsOf: recordURL(for: profileName))
-        return try JSONDecoder().decode(RuntimeRecord.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(RuntimeRecord.self, from: data)
     }
 
     private func write(_ record: RuntimeRecord) throws {
