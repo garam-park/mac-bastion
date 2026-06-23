@@ -8,35 +8,51 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 BUILD_DIR="$ROOT_DIR/.build/manual"
-MODULE_DIR="$BUILD_DIR/modules"
+ARCHS=("arm64" "x86_64")
+DEPLOY_TARGET="12.0"
 
 cd "$ROOT_DIR"
 
 rm -rf "$APP_DIR"
-mkdir -p "$MACOS_DIR" "$FRAMEWORKS_DIR" "$MODULE_DIR"
+mkdir -p "$MACOS_DIR" "$FRAMEWORKS_DIR"
 
-swiftc \
-  -parse-as-library \
-  -emit-module \
-  -emit-library \
-  -module-name MacBastionCore \
-  Sources/MacBastionCore/*.swift \
-  -emit-module-path "$MODULE_DIR/MacBastionCore.swiftmodule" \
-  -Xlinker -install_name \
-  -Xlinker @rpath/libMacBastionCore.dylib \
-  -o "$BUILD_DIR/libMacBastionCore.dylib"
+# Build the core library and menu executable once per architecture, then lipo
+# the slices into universal binaries (Apple Silicon + Intel).
+core_slices=()
+menu_slices=()
+for arch in "${ARCHS[@]}"; do
+  arch_dir="$BUILD_DIR/$arch"
+  mkdir -p "$arch_dir"
 
-swiftc \
-  -parse-as-library \
-  -I "$MODULE_DIR" \
-  -L "$BUILD_DIR" \
-  -lMacBastionCore \
-  -Xlinker -rpath \
-  -Xlinker @executable_path/../Frameworks \
-  Sources/MacBastionMenu/main.swift \
-  -o "$MACOS_DIR/MacBastionMenu"
+  swiftc \
+    -target "$arch-apple-macosx$DEPLOY_TARGET" \
+    -parse-as-library \
+    -emit-module \
+    -emit-library \
+    -module-name MacBastionCore \
+    Sources/MacBastionCore/*.swift \
+    -emit-module-path "$arch_dir/MacBastionCore.swiftmodule" \
+    -Xlinker -install_name \
+    -Xlinker @rpath/libMacBastionCore.dylib \
+    -o "$arch_dir/libMacBastionCore.dylib"
 
-cp "$BUILD_DIR/libMacBastionCore.dylib" "$FRAMEWORKS_DIR/libMacBastionCore.dylib"
+  swiftc \
+    -target "$arch-apple-macosx$DEPLOY_TARGET" \
+    -parse-as-library \
+    -I "$arch_dir" \
+    -L "$arch_dir" \
+    -lMacBastionCore \
+    -Xlinker -rpath \
+    -Xlinker @executable_path/../Frameworks \
+    Sources/MacBastionMenu/main.swift \
+    -o "$arch_dir/MacBastionMenu"
+
+  core_slices+=("$arch_dir/libMacBastionCore.dylib")
+  menu_slices+=("$arch_dir/MacBastionMenu")
+done
+
+lipo -create "${menu_slices[@]}" -output "$MACOS_DIR/MacBastionMenu"
+lipo -create "${core_slices[@]}" -output "$FRAMEWORKS_DIR/libMacBastionCore.dylib"
 
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

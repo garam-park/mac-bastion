@@ -29,14 +29,14 @@ jobs:
               --title "Mac Bastion ${GITHUB_REF_NAME#v}" \
               --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md"
             gh release upload "$GITHUB_REF_NAME" \
-              dist/MacBastionMenu-${GITHUB_REF_NAME#v}-macos-arm64.zip \
-              dist/mbastion-${GITHUB_REF_NAME#v}-macos-arm64.tar.gz \
+              dist/MacBastionMenu-${GITHUB_REF_NAME#v}-macos-universal.zip \
+              dist/mbastion-${GITHUB_REF_NAME#v}-macos-universal.tar.gz \
               dist/SHA256SUMS.txt \
               --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
-              dist/MacBastionMenu-${GITHUB_REF_NAME#v}-macos-arm64.zip \
-              dist/mbastion-${GITHUB_REF_NAME#v}-macos-arm64.tar.gz \
+              dist/MacBastionMenu-${GITHUB_REF_NAME#v}-macos-universal.zip \
+              dist/mbastion-${GITHUB_REF_NAME#v}-macos-universal.tar.gz \
               dist/SHA256SUMS.txt \
               --title "Mac Bastion ${GITHUB_REF_NAME#v}" \
               --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md"

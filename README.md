@@ -25,8 +25,8 @@ Packaged builds are published from [GitHub Releases](../../releases).
 
 | Artifact | Contents |
 | --- | --- |
-| `MacBastionMenu-<version>-macos-arm64.zip` | Menu bar app |
-| `mbastion-<version>-macos-arm64.tar.gz` | CLI binary + runtime library |
+| `MacBastionMenu-<version>-macos-universal.zip` | Menu bar app |
+| `mbastion-<version>-macos-universal.tar.gz` | CLI binary + runtime library |
 | `SHA256SUMS.txt` | Checksums |
 
 ## Build
